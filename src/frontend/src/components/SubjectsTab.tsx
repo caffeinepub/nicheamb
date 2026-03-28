@@ -171,6 +171,7 @@ function TopicRow({
   onDelete: () => void;
 }) {
   const [retestOpen, setRetestOpen] = useState(false);
+  const { updateTopicConfidence } = useSubjects();
 
   return (
     <>
@@ -182,8 +183,13 @@ function TopicRow({
         <button
           type="button"
           onClick={() => {
-            onUpdate({ status: STATUS_NEXT[topic.status as StatusCycle] });
+            const nextStatus = STATUS_NEXT[topic.status as StatusCycle];
+            onUpdate({ status: nextStatus });
             playTick();
+            if (nextStatus === "Completed") {
+              const newConf = Math.min(95, topic.numericConfidence + 4);
+              updateTopicConfidence(subjectId, topic.id, newConf);
+            }
           }}
           className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold transition-colors"
           style={{

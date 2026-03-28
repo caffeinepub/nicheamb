@@ -61,7 +61,7 @@ function getHighestPriorityTopic(
 }
 
 export default function StudyModeTab() {
-  const { subjects, updateTopicConfidence } = useSubjects();
+  const { subjects, updateTopicConfidence, updateTopic } = useSubjects();
   const { audioState } = useAudioContext();
   const [method, setMethod] = useState<StudyMethod>("Pomodoro");
   const [currentTask, setCurrentTask] = useState(() =>
@@ -114,10 +114,16 @@ export default function StudyModeTab() {
             // ── Dynamic confidence update on session complete ──────────────
             const task = currentTaskRef.current;
             if (task) {
-              const newConf = applySessionUpdate(
-                task.topic.numericConfidence,
-                "high",
+              // Look up live confidence from current subjects state
+              const liveSubject = subjectsRef.current.find(
+                (s) => s.id === task.subject.id,
               );
+              const liveTopic = liveSubject?.topics.find(
+                (t) => t.id === task.topic.id,
+              );
+              const liveConfidence =
+                liveTopic?.numericConfidence ?? task.topic.numericConfidence;
+              const newConf = applySessionUpdate(liveConfidence, "high");
               updateTopicConfidence(task.subject.id, task.topic.id, newConf);
             }
 
@@ -142,6 +148,23 @@ export default function StudyModeTab() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isRunning, updateTopicConfidence]);
+
+  const handleMarkCompleted = () => {
+    const task = currentTask;
+    if (!task) return;
+    // Look up live confidence
+    const liveSubject = subjects.find((s) => s.id === task.subject.id);
+    const liveTopic = liveSubject?.topics.find((t) => t.id === task.topic.id);
+    const liveConfidence =
+      liveTopic?.numericConfidence ?? task.topic.numericConfidence;
+    const newConf = applySessionUpdate(liveConfidence, "high");
+    updateTopic(task.subject.id, task.topic.id, { status: "Completed" });
+    updateTopicConfidence(task.subject.id, task.topic.id, newConf);
+    playTick();
+    toast.success("Task marked complete. Confidence updated.");
+    const next = getHighestPriorityTopic(subjects);
+    setCurrentTask(next);
+  };
 
   const totalSec = phase === "Focus" ? focusSec : breakSec;
   const progress = 1 - secsLeft / totalSec;
@@ -179,23 +202,40 @@ export default function StudyModeTab() {
         ) : (
           <div style={{ color: "#4b5563" }}>No tasks available.</div>
         )}
-        <button
-          type="button"
-          data-ocid="study.next_task.button"
-          onClick={() => {
-            playTick();
-            setCurrentTask(getHighestPriorityTopic(subjects));
-            toast.success("Next highest priority task selected");
-          }}
-          className="mt-3 text-sm px-4 py-2 rounded transition-colors"
-          style={{
-            background: "rgba(37,99,235,0.12)",
-            color: "#3b82f6",
-            border: "1px solid rgba(37,99,235,0.3)",
-          }}
-        >
-          Start Next Task
-        </button>
+        <div className="flex gap-2 mt-3 flex-wrap">
+          <button
+            type="button"
+            data-ocid="study.next_task.button"
+            onClick={() => {
+              playTick();
+              setCurrentTask(getHighestPriorityTopic(subjects));
+              toast.success("Next highest priority task selected");
+            }}
+            className="text-sm px-4 py-2 rounded transition-colors"
+            style={{
+              background: "rgba(37,99,235,0.12)",
+              color: "#3b82f6",
+              border: "1px solid rgba(37,99,235,0.3)",
+            }}
+          >
+            Start Next Task
+          </button>
+          {currentTask && !isRunning && (
+            <button
+              type="button"
+              data-ocid="study.mark_completed.button"
+              onClick={handleMarkCompleted}
+              className="text-sm px-4 py-2 rounded transition-colors"
+              style={{
+                background: "rgba(34,197,94,0.12)",
+                color: "#22c55e",
+                border: "1px solid rgba(34,197,94,0.3)",
+              }}
+            >
+              Mark as Completed
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Study Method */}

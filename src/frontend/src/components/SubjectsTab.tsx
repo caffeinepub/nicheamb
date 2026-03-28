@@ -2,7 +2,13 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSubjects } from "../context/SubjectsContext";
 import type { Subject, Topic } from "../mockData";
+import {
+  calcSubjectConfidence,
+  getDecayStatus,
+  getTrend,
+} from "../utils/confidenceEngine";
 import { playClick, playTick } from "../utils/soundEffects";
+import RetestModal from "./RetestModal";
 
 type StatusCycle = "Not Started" | "In Progress" | "Completed";
 const STATUS_NEXT: Record<StatusCycle, StatusCycle> = {
@@ -14,6 +20,11 @@ const STATUS_COLOR: Record<StatusCycle, string> = {
   "Not Started": "#4b5563",
   "In Progress": "#f59e0b",
   Completed: "#22c55e",
+};
+const DECAY_COLOR: Record<"Fresh" | "Fading" | "Needs Revision", string> = {
+  Fresh: "#22c55e",
+  Fading: "#f59e0b",
+  "Needs Revision": "#ef4444",
 };
 
 // ── Inline editable text ─────────────────────────────────────────────────────
@@ -86,151 +97,230 @@ function InlineEdit({
   );
 }
 
+// ── Confidence Badge ─────────────────────────────────────────────────────────
+function ConfidenceBadge({
+  topic,
+  onRetest,
+}: {
+  topic: Topic;
+  onRetest: () => void;
+}) {
+  const daysSince =
+    (Date.now() - (topic.lastStudiedTimestamp ?? Date.now())) / 86400000;
+  const decayStatus = getDecayStatus(daysSince);
+  const trend = getTrend(topic.confidenceTrend ?? [topic.numericConfidence]);
+  const trendArrow = trend === "up" ? "↑" : trend === "down" ? "↓" : "—";
+  const trendColor =
+    trend === "up" ? "#22c55e" : trend === "down" ? "#ef4444" : "#9ca3af";
+  const decayColor = DECAY_COLOR[decayStatus];
+
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* Confidence % + trend */}
+      <span
+        className="text-xs font-semibold tabular-nums"
+        style={{ color: "#f9fafb" }}
+      >
+        {topic.numericConfidence}%
+      </span>
+      <span className="text-xs font-bold" style={{ color: trendColor }}>
+        {trendArrow}
+      </span>
+      {/* Decay badge */}
+      <span
+        className="text-xs px-1.5 py-0.5 rounded"
+        style={{
+          background: `${decayColor}18`,
+          color: decayColor,
+          border: `1px solid ${decayColor}35`,
+        }}
+      >
+        {decayStatus}
+      </span>
+      {/* Retest button */}
+      <button
+        type="button"
+        data-ocid="subjects.topic.retest_button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRetest();
+        }}
+        className="text-xs px-1.5 py-0.5 rounded transition-colors"
+        style={{
+          background: "rgba(37,99,235,0.1)",
+          color: "#3b82f6",
+          border: "1px solid rgba(37,99,235,0.25)",
+        }}
+      >
+        Retest →
+      </button>
+    </div>
+  );
+}
+
 // ── Topic Row ────────────────────────────────────────────────────────────────
 function TopicRow({
   topic,
+  subjectId,
   onUpdate,
   onDelete,
 }: {
   topic: Topic;
+  subjectId: number;
   onUpdate: (updates: Partial<Topic>) => void;
   onDelete: () => void;
 }) {
+  const [retestOpen, setRetestOpen] = useState(false);
+
   return (
-    <div
-      className="flex items-center gap-3 p-3 rounded-lg"
-      style={{ background: "#07090d", border: "1px solid #1f2937" }}
-    >
-      {/* Status cycle */}
-      <button
-        type="button"
-        onClick={() => {
-          onUpdate({ status: STATUS_NEXT[topic.status as StatusCycle] });
-          playTick();
-        }}
-        className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold transition-colors"
-        style={{
-          background: `${STATUS_COLOR[topic.status as StatusCycle]}15`,
-          color: STATUS_COLOR[topic.status as StatusCycle],
-          border: `1px solid ${STATUS_COLOR[topic.status as StatusCycle]}30`,
-          minWidth: 90,
-        }}
-      >
-        {topic.status}
-      </button>
-
-      {/* Inline topic name edit */}
-      <InlineEdit
-        value={topic.name}
-        onSave={(v) => onUpdate({ name: v })}
-        className="flex-1 text-sm"
-        style={{ color: "#f9fafb" }}
-      />
-
-      {/* Confidence */}
+    <>
       <div
-        className="flex flex-col gap-0.5 flex-shrink-0"
-        style={{ minWidth: 90 }}
+        className="flex items-center gap-3 p-3 rounded-lg"
+        style={{ background: "#07090d", border: "1px solid #1f2937" }}
       >
-        <div className="flex items-center gap-2">
+        {/* Status cycle */}
+        <button
+          type="button"
+          onClick={() => {
+            onUpdate({ status: STATUS_NEXT[topic.status as StatusCycle] });
+            playTick();
+          }}
+          className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold transition-colors"
+          style={{
+            background: `${STATUS_COLOR[topic.status as StatusCycle]}15`,
+            color: STATUS_COLOR[topic.status as StatusCycle],
+            border: `1px solid ${STATUS_COLOR[topic.status as StatusCycle]}30`,
+            minWidth: 90,
+          }}
+        >
+          {topic.status}
+        </button>
+
+        {/* Inline topic name edit */}
+        <InlineEdit
+          value={topic.name}
+          onSave={(v) => onUpdate({ name: v })}
+          className="flex-1 text-sm"
+          style={{ color: "#f9fafb" }}
+        />
+
+        {/* Dynamic confidence badge */}
+        <ConfidenceBadge topic={topic} onRetest={() => setRetestOpen(true)} />
+
+        {/* Confidence number input */}
+        <div
+          className="flex flex-col gap-0.5 flex-shrink-0"
+          style={{ minWidth: 90 }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: "#4b5563" }}>
+              conf
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={topic.numericConfidence}
+              onChange={(e) =>
+                onUpdate({
+                  numericConfidence: Math.min(
+                    100,
+                    Math.max(0, Number(e.target.value)),
+                  ),
+                })
+              }
+              aria-label={`Confidence for ${topic.name}`}
+              className="w-12 text-xs text-right rounded px-1 py-0.5 bg-transparent"
+              style={{ border: "1px solid #1f2937", color: "#9ca3af" }}
+            />
+          </div>
+          <div
+            className="h-0.5 rounded-full"
+            style={{ background: "#1f2937", width: 90 }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${topic.numericConfidence}%`,
+                background:
+                  topic.numericConfidence >= 65
+                    ? "#22c55e"
+                    : topic.numericConfidence >= 40
+                      ? "#f59e0b"
+                      : "#ef4444",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Effort */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <span className="text-xs" style={{ color: "#4b5563" }}>
-            conf
+            h
           </span>
           <input
             type="number"
-            min={0}
-            max={100}
-            value={topic.numericConfidence}
+            min={0.5}
+            step={0.5}
+            value={topic.estimatedEffort}
             onChange={(e) =>
-              onUpdate({
-                numericConfidence: Math.min(
-                  100,
-                  Math.max(0, Number(e.target.value)),
-                ),
-              })
+              onUpdate({ estimatedEffort: Number(e.target.value) })
             }
-            aria-label={`Confidence for ${topic.name}`}
+            aria-label={`Effort hours for ${topic.name}`}
             className="w-12 text-xs text-right rounded px-1 py-0.5 bg-transparent"
             style={{ border: "1px solid #1f2937", color: "#9ca3af" }}
           />
         </div>
-        <div
-          className="h-0.5 rounded-full"
-          style={{ background: "#1f2937", width: 90 }}
+
+        {/* Revision count */}
+        <button
+          type="button"
+          onClick={() => onUpdate({ revisionCount: topic.revisionCount + 1 })}
+          className="flex-shrink-0 text-xs px-2 py-0.5 rounded transition-colors"
+          style={{
+            background: "rgba(34,211,238,0.08)",
+            color: "#22d3ee",
+            border: "1px solid rgba(34,211,238,0.2)",
+          }}
+          title="Increment revision count"
         >
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${topic.numericConfidence}%`,
-              background:
-                topic.numericConfidence >= 65
-                  ? "#22c55e"
-                  : topic.numericConfidence >= 40
-                    ? "#f59e0b"
-                    : "#ef4444",
-            }}
-          />
-        </div>
-      </div>
+          rev {topic.revisionCount} +
+        </button>
 
-      {/* Effort */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <span className="text-xs" style={{ color: "#4b5563" }}>
-          h
+        {/* Last studied */}
+        <span
+          className="text-xs flex-shrink-0"
+          style={{ color: "#4b5563", minWidth: 60 }}
+        >
+          {topic.lastStudied}
         </span>
-        <input
-          type="number"
-          min={0.5}
-          step={0.5}
-          value={topic.estimatedEffort}
-          onChange={(e) =>
-            onUpdate({ estimatedEffort: Number(e.target.value) })
-          }
-          aria-label={`Effort hours for ${topic.name}`}
-          className="w-12 text-xs text-right rounded px-1 py-0.5 bg-transparent"
-          style={{ border: "1px solid #1f2937", color: "#9ca3af" }}
-        />
+
+        {/* Delete */}
+        <button
+          type="button"
+          onClick={onDelete}
+          className="text-xs px-2 py-1 rounded transition-colors flex-shrink-0"
+          style={{ color: "#4b5563", border: "1px solid #1f2937" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "#ef4444";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = "#4b5563";
+          }}
+        >
+          ×
+        </button>
       </div>
 
-      {/* Revision count */}
-      <button
-        type="button"
-        onClick={() => onUpdate({ revisionCount: topic.revisionCount + 1 })}
-        className="flex-shrink-0 text-xs px-2 py-0.5 rounded transition-colors"
-        style={{
-          background: "rgba(34,211,238,0.08)",
-          color: "#22d3ee",
-          border: "1px solid rgba(34,211,238,0.2)",
-        }}
-        title="Increment revision count"
-      >
-        rev {topic.revisionCount} +
-      </button>
-
-      {/* Last studied */}
-      <span
-        className="text-xs flex-shrink-0"
-        style={{ color: "#4b5563", minWidth: 60 }}
-      >
-        {topic.lastStudied}
-      </span>
-
-      {/* Delete */}
-      <button
-        type="button"
-        onClick={onDelete}
-        className="text-xs px-2 py-1 rounded transition-colors flex-shrink-0"
-        style={{ color: "#4b5563", border: "1px solid #1f2937" }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#ef4444";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#4b5563";
-        }}
-      >
-        ×
-      </button>
-    </div>
+      <RetestModal
+        open={retestOpen}
+        onClose={() => setRetestOpen(false)}
+        subjectId={subjectId}
+        topicId={topic.id}
+        topicName={topic.name}
+        currentConfidence={topic.numericConfidence}
+      />
+    </>
   );
 }
 
@@ -247,6 +337,7 @@ function SubjectDetail({
   ).length;
   const progress =
     subject.topics.length > 0 ? (completed / subject.topics.length) * 100 : 0;
+  const subjectConfidence = calcSubjectConfidence(subject.topics);
 
   const handleAddTopic = () => {
     if (!newTopicName.trim()) return;
@@ -256,6 +347,8 @@ function SubjectDetail({
       numericConfidence: 30,
       estimatedEffort: 5,
       lastStudied: "Never",
+      lastStudiedTimestamp: Date.now() - 30 * 86400000,
+      confidenceTrend: [30],
       revisionCount: 0,
     });
     playTick();
@@ -292,9 +385,35 @@ function SubjectDetail({
           className="text-xl font-semibold"
           style={{ color: "#f9fafb" }}
         />
-        <span className="text-sm ml-auto" style={{ color: "#4b5563" }}>
-          {subject.examWeight}% weight · {subject.requiredHours}h required
-        </span>
+        <div className="ml-auto flex items-center gap-3">
+          {/* Subject confidence */}
+          <span
+            className="text-xs px-2 py-1 rounded"
+            style={{
+              background: "rgba(37,99,235,0.1)",
+              color: "#9ca3af",
+              border: "1px solid #1f2937",
+            }}
+          >
+            Subject Confidence:{" "}
+            <span
+              style={{
+                color:
+                  subjectConfidence >= 65
+                    ? "#22c55e"
+                    : subjectConfidence >= 40
+                      ? "#f59e0b"
+                      : "#ef4444",
+                fontWeight: 700,
+              }}
+            >
+              {subjectConfidence}%
+            </span>
+          </span>
+          <span className="text-sm" style={{ color: "#4b5563" }}>
+            {subject.examWeight}% weight · {subject.requiredHours}h required
+          </span>
+        </div>
       </div>
 
       <div className="surface-card p-4">
@@ -330,6 +449,7 @@ function SubjectDetail({
             <TopicRow
               key={t.id}
               topic={t}
+              subjectId={subject.id}
               onUpdate={(updates) => updateTopic(subject.id, t.id, updates)}
               onDelete={() => {
                 deleteTopic(subject.id, t.id);
@@ -401,12 +521,13 @@ function SubjectCard({
   ).length;
   const progress =
     subject.topics.length > 0 ? (completed / subject.topics.length) * 100 : 0;
-  const avgConf =
-    subject.topics.length > 0
-      ? subject.topics.reduce((a, t) => a + t.numericConfidence, 0) /
-        subject.topics.length
-      : 0;
-  const strength = avgConf >= 65 ? "High" : avgConf >= 40 ? "Medium" : "Low";
+  const subjectConfidence = calcSubjectConfidence(subject.topics);
+  const strength =
+    subjectConfidence >= 65
+      ? "High"
+      : subjectConfidence >= 40
+        ? "Medium"
+        : "Low";
   const strengthColor =
     strength === "High"
       ? "#22c55e"
@@ -468,16 +589,32 @@ function SubjectCard({
               {subject.name}
             </span>
           </div>
-          <span
-            className="pill text-xs"
-            style={{
-              background: `${strengthColor}15`,
-              color: strengthColor,
-              border: `1px solid ${strengthColor}30`,
-            }}
-          >
-            {strength}
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Subject confidence inline */}
+            <span
+              className="text-xs tabular-nums"
+              style={{
+                color:
+                  subjectConfidence >= 65
+                    ? "#22c55e"
+                    : subjectConfidence >= 40
+                      ? "#f59e0b"
+                      : "#ef4444",
+              }}
+            >
+              {subjectConfidence}%
+            </span>
+            <span
+              className="pill text-xs"
+              style={{
+                background: `${strengthColor}15`,
+                color: strengthColor,
+                border: `1px solid ${strengthColor}30`,
+              }}
+            >
+              {strength}
+            </span>
+          </div>
         </div>
         <div
           className="h-1 rounded-full mb-3"

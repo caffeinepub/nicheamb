@@ -1,5 +1,39 @@
-import { type ReactNode, createContext, useContext, useState } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { type Subject, type Topic, initialSubjects } from "../mockData";
+import { applyDecay } from "../utils/confidenceEngine";
+
+const STORAGE_KEY = "nicheamb_subjects";
+
+function loadSubjects(): Subject[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Subject[];
+  } catch {
+    // ignore
+  }
+  return initialSubjects;
+}
+
+function applyDecayToAll(subjects: Subject[]): Subject[] {
+  const now = Date.now();
+  return subjects.map((s) => ({
+    ...s,
+    topics: s.topics.map((t) => {
+      const daysSince = (now - (t.lastStudiedTimestamp ?? now)) / 86400000;
+      const decayed = applyDecay(t.numericConfidence, daysSince);
+      if (decayed !== t.numericConfidence) {
+        return { ...t, numericConfidence: decayed };
+      }
+      return t;
+    }),
+  }));
+}
 
 interface SubjectsContextValue {
   subjects: Subject[];
@@ -15,12 +49,28 @@ interface SubjectsContextValue {
     updates: Partial<Topic>,
   ) => void;
   deleteTopic: (subjectId: number, topicId: number) => void;
+  updateTopicConfidence: (
+    subjectId: number,
+    topicId: number,
+    newConfidence: number,
+  ) => void;
 }
 
 const SubjectsCtx = createContext<SubjectsContextValue | null>(null);
 
 export function SubjectsProvider({ children }: { children: ReactNode }) {
-  const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
+  const [subjects, setSubjects] = useState<Subject[]>(() =>
+    applyDecayToAll(loadSubjects()),
+  );
+
+  // Persist to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
+    } catch {
+      // ignore
+    }
+  }, [subjects]);
 
   const addSubject = (s: Omit<Subject, "id" | "topics">) => {
     setSubjects((prev) => [...prev, { ...s, id: Date.now(), topics: [] }]);
@@ -90,6 +140,34 @@ export function SubjectsProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const updateTopicConfidence = (
+    subjectId: number,
+    topicId: number,
+    newConfidence: number,
+  ) => {
+    const clamped = Math.min(100, Math.max(0, newConfidence));
+    setSubjects((prev) =>
+      prev.map((s) =>
+        s.id === subjectId
+          ? {
+              ...s,
+              topics: s.topics.map((t) => {
+                if (t.id !== topicId) return t;
+                const trend = [...(t.confidenceTrend ?? []), clamped].slice(-5);
+                return {
+                  ...t,
+                  numericConfidence: clamped,
+                  confidenceTrend: trend,
+                  lastStudiedTimestamp: Date.now(),
+                  lastStudied: "Just now",
+                };
+              }),
+            }
+          : s,
+      ),
+    );
+  };
+
   return (
     <SubjectsCtx.Provider
       value={{
@@ -102,6 +180,7 @@ export function SubjectsProvider({ children }: { children: ReactNode }) {
         addTopic,
         updateTopic,
         deleteTopic,
+        updateTopicConfidence,
       }}
     >
       {children}

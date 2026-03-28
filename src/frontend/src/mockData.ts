@@ -7,6 +7,8 @@ export interface Topic {
   numericConfidence: number; // 0–100
   estimatedEffort: number; // hours
   lastStudied: string;
+  lastStudiedTimestamp: number; // Unix ms for decay calc
+  confidenceTrend: number[]; // last 5 confidence snapshots
   revisionCount: number;
 }
 
@@ -37,6 +39,9 @@ export const studyConfig = {
   pastPerformance: 68,
 };
 
+const now = Date.now();
+const day = 86400000;
+
 export const initialSubjects: Subject[] = [
   {
     id: 1,
@@ -54,6 +59,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 30,
         estimatedEffort: 8,
         lastStudied: "2 days ago",
+        lastStudiedTimestamp: now - 2 * day,
+        confidenceTrend: [20, 22, 27, 30],
         revisionCount: 3,
       },
       {
@@ -63,6 +70,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 20,
         estimatedEffort: 10,
         lastStudied: "5 days ago",
+        lastStudiedTimestamp: now - 5 * day,
+        confidenceTrend: [22, 21, 20, 20],
         revisionCount: 1,
       },
       {
@@ -72,6 +81,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 65,
         estimatedEffort: 6,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [50, 55, 60, 65],
         revisionCount: 5,
       },
       {
@@ -81,6 +92,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 25,
         estimatedEffort: 9,
         lastStudied: "7 days ago",
+        lastStudiedTimestamp: now - 7 * day,
+        confidenceTrend: [30, 28, 26, 25],
         revisionCount: 1,
       },
       {
@@ -90,6 +103,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 15,
         estimatedEffort: 12,
         lastStudied: "Never",
+        lastStudiedTimestamp: now - 30 * day,
+        confidenceTrend: [15],
         revisionCount: 0,
       },
     ],
@@ -110,6 +125,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 55,
         estimatedEffort: 7,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [40, 45, 50, 55],
         revisionCount: 4,
       },
       {
@@ -119,6 +136,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 30,
         estimatedEffort: 9,
         lastStudied: "4 days ago",
+        lastStudiedTimestamp: now - 4 * day,
+        confidenceTrend: [35, 33, 31, 30],
         revisionCount: 1,
       },
       {
@@ -128,6 +147,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 45,
         estimatedEffort: 8,
         lastStudied: "2 days ago",
+        lastStudiedTimestamp: now - 2 * day,
+        confidenceTrend: [38, 40, 43, 45],
         revisionCount: 2,
       },
       {
@@ -137,6 +158,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 70,
         estimatedEffort: 6,
         lastStudied: "Today",
+        lastStudiedTimestamp: now - 0 * day,
+        confidenceTrend: [55, 60, 65, 70],
         revisionCount: 6,
       },
       {
@@ -146,6 +169,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 20,
         estimatedEffort: 10,
         lastStudied: "Never",
+        lastStudiedTimestamp: now - 30 * day,
+        confidenceTrend: [20],
         revisionCount: 0,
       },
     ],
@@ -166,6 +191,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 50,
         estimatedEffort: 10,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [38, 42, 47, 50],
         revisionCount: 3,
       },
       {
@@ -175,6 +202,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 75,
         estimatedEffort: 6,
         lastStudied: "Today",
+        lastStudiedTimestamp: now - 0 * day,
+        confidenceTrend: [60, 65, 70, 75],
         revisionCount: 7,
       },
       {
@@ -184,6 +213,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 55,
         estimatedEffort: 8,
         lastStudied: "3 days ago",
+        lastStudiedTimestamp: now - 3 * day,
+        confidenceTrend: [48, 50, 53, 55],
         revisionCount: 2,
       },
       {
@@ -193,6 +224,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 30,
         estimatedEffort: 7,
         lastStudied: "8 days ago",
+        lastStudiedTimestamp: now - 8 * day,
+        confidenceTrend: [38, 35, 32, 30],
         revisionCount: 1,
       },
       {
@@ -202,6 +235,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 20,
         estimatedEffort: 5,
         lastStudied: "Never",
+        lastStudiedTimestamp: now - 30 * day,
+        confidenceTrend: [20],
         revisionCount: 0,
       },
     ],
@@ -222,6 +257,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 72,
         estimatedEffort: 6,
         lastStudied: "Today",
+        lastStudiedTimestamp: now - 0 * day,
+        confidenceTrend: [60, 65, 68, 72],
         revisionCount: 5,
       },
       {
@@ -231,6 +268,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 60,
         estimatedEffort: 7,
         lastStudied: "2 days ago",
+        lastStudiedTimestamp: now - 2 * day,
+        confidenceTrend: [50, 54, 57, 60],
         revisionCount: 3,
       },
       {
@@ -240,6 +279,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 80,
         estimatedEffort: 4,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [65, 70, 75, 80],
         revisionCount: 8,
       },
       {
@@ -249,6 +290,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 85,
         estimatedEffort: 5,
         lastStudied: "Today",
+        lastStudiedTimestamp: now - 0 * day,
+        confidenceTrend: [70, 75, 80, 85],
         revisionCount: 6,
       },
     ],
@@ -269,6 +312,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 88,
         estimatedEffort: 5,
         lastStudied: "Today",
+        lastStudiedTimestamp: now - 0 * day,
+        confidenceTrend: [75, 80, 84, 88],
         revisionCount: 9,
       },
       {
@@ -278,6 +323,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 84,
         estimatedEffort: 6,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [72, 76, 80, 84],
         revisionCount: 7,
       },
       {
@@ -287,6 +334,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 78,
         estimatedEffort: 5,
         lastStudied: "2 days ago",
+        lastStudiedTimestamp: now - 2 * day,
+        confidenceTrend: [65, 70, 74, 78],
         revisionCount: 5,
       },
       {
@@ -296,6 +345,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 60,
         estimatedEffort: 7,
         lastStudied: "3 days ago",
+        lastStudiedTimestamp: now - 3 * day,
+        confidenceTrend: [50, 54, 57, 60],
         revisionCount: 3,
       },
       {
@@ -305,6 +356,8 @@ export const initialSubjects: Subject[] = [
         numericConfidence: 55,
         estimatedEffort: 6,
         lastStudied: "1 day ago",
+        lastStudiedTimestamp: now - 1 * day,
+        confidenceTrend: [44, 48, 52, 55],
         revisionCount: 4,
       },
     ],

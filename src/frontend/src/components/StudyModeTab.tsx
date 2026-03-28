@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useAudioContext } from "../context/AudioContext";
 import { useSubjects } from "../context/SubjectsContext";
 import type { Subject, Topic } from "../mockData";
+import { applySessionUpdate } from "../utils/confidenceEngine";
 import {
   playChime,
   playClick,
@@ -60,7 +61,7 @@ function getHighestPriorityTopic(
 }
 
 export default function StudyModeTab() {
-  const { subjects } = useSubjects();
+  const { subjects, updateTopicConfidence } = useSubjects();
   const { audioState } = useAudioContext();
   const [method, setMethod] = useState<StudyMethod>("Pomodoro");
   const [currentTask, setCurrentTask] = useState(() =>
@@ -82,11 +83,13 @@ export default function StudyModeTab() {
   const phaseRef = useRef(phase);
   const focusSecRef = useRef(focusSec);
   const subjectsRef = useRef(subjects);
+  const currentTaskRef = useRef(currentTask);
 
   methodRef.current = method;
   phaseRef.current = phase;
   focusSecRef.current = focusSec;
   subjectsRef.current = subjects;
+  currentTaskRef.current = currentTask;
 
   useEffect(() => {
     setSecsLeft(phase === "Focus" ? focusSec : breakSec);
@@ -107,6 +110,17 @@ export default function StudyModeTab() {
             setSessionCount((c) => c + 1);
             setTotalTodaySec((t) => t + focusSecRef.current);
             const quality = METHOD_QUALITY[methodRef.current];
+
+            // ── Dynamic confidence update on session complete ──────────────
+            const task = currentTaskRef.current;
+            if (task) {
+              const newConf = applySessionUpdate(
+                task.topic.numericConfidence,
+                "high",
+              );
+              updateTopicConfidence(task.subject.id, task.topic.id, newConf);
+            }
+
             const next = getHighestPriorityTopic(subjectsRef.current);
             setLastFeedback(
               `Session complete. Focus quality: ${quality}%. Next: ${next?.topic.name ?? "Review your notes"}.`,
@@ -127,7 +141,7 @@ export default function StudyModeTab() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isRunning]);
+  }, [isRunning, updateTopicConfidence]);
 
   const totalSec = phase === "Focus" ? focusSec : breakSec;
   const progress = 1 - secsLeft / totalSec;

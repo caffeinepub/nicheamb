@@ -1,0 +1,172 @@
+@font-face {
+  font-family: "General Sans";
+  src: url("/assets/fonts/GeneralSans.woff2") format("woff2");
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    /* Blue-black dark theme */
+    --background: 0.07 0.012 240;
+    --foreground: 0.98 0 0;
+    --card: 0.12 0.018 240;
+    --card-foreground: 0.98 0 0;
+    --popover: 0.12 0.018 240;
+    --popover-foreground: 0.98 0 0;
+    --primary: 0.46 0.22 264;
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.13 0.018 240;
+    --secondary-foreground: 0.68 0.01 240;
+    --muted: 0.13 0.018 240;
+    --muted-foreground: 0.38 0.02 240;
+    --accent: 0.55 0.22 264;
+    --accent-foreground: 0.98 0 0;
+    --destructive: 0.57 0.22 22;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.2 0.02 240;
+    --input: 0.2 0.02 240;
+    --ring: 0.46 0.22 264;
+    --chart-1: 0.46 0.22 264;
+    --chart-2: 0.78 0.14 200;
+    --chart-3: 0.72 0.18 75;
+    --chart-4: 0.68 0.2 145;
+    --chart-5: 0.57 0.22 22;
+    --sidebar: 0.12 0.018 240;
+    --sidebar-foreground: 0.98 0 0;
+    --sidebar-primary: 0.46 0.22 264;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.13 0.018 240;
+    --sidebar-accent-foreground: 0.68 0.01 240;
+    --sidebar-border: 0.2 0.02 240;
+    --sidebar-ring: 0.46 0.22 264;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    font-family: "General Sans", system-ui, sans-serif;
+    background-color: #07090d;
+    color: #f9fafb;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* ── Surface cards ── */
+.surface-card {
+  background: rgba(15, 23, 32, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.surface-card:hover {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+}
+
+/* ── Glow utilities ── */
+.glow-blue {
+  box-shadow: 0 0 24px rgba(37, 99, 235, 0.25);
+}
+.glow-blue-lg {
+  box-shadow: 0 0 40px rgba(37, 99, 235, 0.3);
+}
+
+/* ── Efficiency bar ── */
+.efficiency-bar {
+  background: linear-gradient(to right, #2563eb 0%, #f59e0b 60%, #ef4444 100%);
+  border-radius: 99px;
+  height: 6px;
+}
+
+/* ── Tab fade-in ── */
+.tab-content {
+  animation: tabFadeIn 0.3s ease forwards;
+}
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Pill badge ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Drag block ── */
+.drag-block {
+  cursor: grab;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.drag-block:active {
+  cursor: grabbing;
+}
+.drag-block.dragging {
+  opacity: 0.4;
+}
+
+/* ── Dark scrollbar ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  border-radius: 99px;
+}
+
+/* ── Strength bar ── */
+.strength-bar-track {
+  height: 4px;
+  border-radius: 99px;
+  background: #1f2937;
+  overflow: hidden;
+}
+.strength-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+/* ── Focus ring glow ── */
+.ring-glow-blue {
+  filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.6));
+}
+
+/* ── Timer pulse (audio sync) ── */
+@keyframes timerPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(37, 99, 235, 0.65));
+  }
+}

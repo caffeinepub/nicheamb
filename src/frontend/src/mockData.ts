@@ -13,6 +13,7 @@ export interface Topic {
 }
 
 export interface Subject {
+  manualConfidence?: number; // optional override for subject-level confidence
   id: number;
   name: string;
   examWeight: number; // 0–100 percentage
